@@ -2,6 +2,8 @@ import configparser
 import io
 from pathlib import Path
 
+# TODO: Parse Desktop.Exec key and its values accordingly, its format is "Exec=<command or its absolute path> <flags or arguments, if any, these can be of formats such as: --flag value, --flag=value, -f value, --long-flag, --long-flag=value, %F (in the case of vscode), %U (for msedge), --enable-features=<feature1,feature2,...>, etc.>"
+# The parser would make it easier to differentiate between the default desktop and the user desktop files (persistent ones), so if both files are the same in regards of order and presence of flags, we don't have to rewrite the user desktop file again.
 
 def add_flags_to_exec_command(exec_cmd: str, flags: list[str]) -> str:
     """
