@@ -1,3 +1,10 @@
+"""
+Configuration management for waylandify.
+
+This module handles loading, validating, and creating configuration files
+that define which programs to modify and what flags to apply.
+"""
+
 from pathlib import Path
 
 import tomlkit
@@ -10,19 +17,29 @@ BACKUP_DIR = CONFIG_DIR / "backups"
 
 
 class ProgramSettings(BaseModel):
+    """Settings for a single program to modify."""
+
     name: str
     executables: list[str]
     flags: list[str]
 
 
 class Config(BaseModel):
+    """Main configuration structure."""
+
     programs: list[ProgramSettings]
 
 
 DEFAULT_CONFIG = (Path(__file__).parent / "data" / "config.toml").read_text()
 
 
-def create_default_config():
+def create_default_config() -> None:
+    """
+    Create a default configuration file at the standard location.
+
+    If the configuration file already exists, prints a warning and returns
+    without making changes.
+    """
     if CONFIG_FILE_PATH.exists():
         print(f"[yellow]Configuration file already exists at:[/] {CONFIG_FILE_PATH}")
         return
@@ -36,6 +53,17 @@ def create_default_config():
 
 
 def load_config() -> Config:
+    """
+    Load and validate the configuration file.
+
+    Returns:
+        A validated Config object
+
+    Raises:
+        FileNotFoundError: If the configuration file doesn't exist
+        ValidationError: If the configuration file is invalid
+        Exception: For other parsing errors
+    """
     if not CONFIG_FILE_PATH.is_file():
         print(
             f"[bold red]❌ Configuration file not found at {CONFIG_FILE_PATH}[/bold red]"
