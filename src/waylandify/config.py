@@ -5,15 +5,25 @@ This module handles loading, validating, and creating configuration files
 that define which programs to modify and what flags to apply.
 """
 
+import os
 from pathlib import Path
 
 import tomlkit
 from pydantic import BaseModel, ValidationError
 from rich import print
 
-CONFIG_DIR = Path.home() / ".config" / "waylandify"
+# XDG Base Directory compliance
+XDG_CONFIG_HOME = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+XDG_DATA_HOME = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
+
+CONFIG_DIR = XDG_CONFIG_HOME / "waylandify"
 CONFIG_FILE_PATH = CONFIG_DIR / "config.toml"
 BACKUP_DIR = CONFIG_DIR / "backups"
+
+
+def get_user_desktop_dir() -> Path:
+    """Get the user's local desktop applications directory."""
+    return XDG_DATA_HOME / "applications"
 
 
 class ProgramSettings(BaseModel):
@@ -22,6 +32,8 @@ class ProgramSettings(BaseModel):
     name: str
     executables: list[str]
     flags: list[str]
+    enabled: bool = True
+    merge_enable_features: bool = True
 
 
 class Config(BaseModel):
@@ -41,13 +53,16 @@ def create_default_config() -> None:
     without making changes.
     """
     if CONFIG_FILE_PATH.exists():
-        print(f"[yellow]Configuration file already exists at:[/] {CONFIG_FILE_PATH}")
+        print(
+            f"[yellow]Configuration file already exists at:[/] {CONFIG_FILE_PATH}"
+        )
         return
     print(f"Creating default config at {CONFIG_FILE_PATH}...")
     try:
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         CONFIG_FILE_PATH.write_text(DEFAULT_CONFIG)
         print("[green]✅ Successfully created configuration file.[/green]")
+        print(f"\n[dim]Edit the config at:[/dim] {CONFIG_FILE_PATH}")
     except Exception as e:
         print(f"[bold red]❌ Error creating config file: {e}[/bold red]")
 

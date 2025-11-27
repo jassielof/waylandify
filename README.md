@@ -12,11 +12,15 @@ Waylandify intelligently modifies `.desktop` files to enable Wayland support wit
 
 - **Smart Flag Parsing**: Properly handles various command-line flag formats (`--flag=value`, `--flag value`, `-f`, `%F`, etc.)
 - **Duplicate Prevention**: Automatically detects and skips flags that are already present
+- **Feature Merging**: Intelligently merges `--enable-features` flags (Chromium-style)
 - **Safe Modifications**: Never modifies system files, only user-level desktop files
 - **Automatic Backups**: Creates timestamped backups before any modifications
 - **Easy Restoration**: Restore from backups or revert to system defaults with a single command
 - **Dry-Run Mode**: Preview changes before applying them
+- **Diff View**: See exactly what changes would be made
 - **Configurable**: Define multiple programs with different flag sets
+- **Flatpak/Snap Support**: Discovers desktop files from Flatpak and Snap installations
+- **XDG Compliant**: Respects `XDG_CONFIG_HOME` and `XDG_DATA_HOME` environment variables
 
 ## Installation
 
@@ -49,32 +53,12 @@ Use astral/uv to install via git.
 
 Creates a default configuration file at `~/.config/waylandify/config.toml`.
 
-Example configuration:
-```toml
-[[programs]]
-name = "Electron Apps"
-executables = ["code", "code-insiders"]
-flags = [
-    "--enable-features=UseOzonePlatform",
-    "--ozone-platform=wayland",
-    "--gtk-version=4",
-]
-
-[[programs]]
-name = "Chromium Browsers"
-executables = ["brave-browser", "brave-browser-stable", "microsoft-edge"]
-flags = [
-    "--enable-features=TouchpadOverscrollHistoryNavigation",
-    "--gtk-version=4",
-]
-```
-
 #### `waylandify apply`
 
 Applies Wayland flags to the applications defined in the config file.
 
 **Options**:
-- `--dry-run`: Preview what would be changed without making any modifications
+- `--dry-run`, `-n`: Preview what would be changed without making any modifications
 
 **Example**:
 ```bash
@@ -83,6 +67,37 @@ waylandify apply --dry-run
 
 # Apply changes
 waylandify apply
+```
+
+#### `waylandify list`
+
+Lists all configured programs and their associated desktop files.
+
+```bash
+waylandify list
+```
+
+#### `waylandify status`
+
+Shows the current status of waylandify modifications, including:
+- Configuration file location and validity
+- Modified desktop files
+- Available backups
+
+```bash
+waylandify status
+```
+
+#### `waylandify diff`
+
+Shows what changes would be made to desktop files in a unified diff format.
+
+```bash
+# Show all diffs
+waylandify diff
+
+# Show diff for specific program
+waylandify diff "Electron Apps"
 ```
 
 #### `waylandify restore`
@@ -103,13 +118,15 @@ waylandify restore --remove-only
 
 ### Configuration File
 
-The configuration file uses TOML format and is located at `~/.config/waylandify/config.toml`.
+The configuration file uses TOML format and is located at `~/.config/waylandify/config.toml` (or `$XDG_CONFIG_HOME/waylandify/config.toml` if set).
 
 **Structure**:
 - `[[programs]]`: Define multiple program entries
   - `name`: A descriptive name for this entry
   - `executables`: List of executable names to search for (e.g., `["code", "code-insiders"]`)
   - `flags`: List of command-line flags to add
+  - `enabled`: (optional) Set to `false` to skip this entry. Default: `true`
+  - `merge_enable_features`: (optional) Merge `--enable-features` flags. Default: `true`
 
 **Example**:
 ```toml
@@ -121,15 +138,53 @@ flags = [
     "--ozone-platform=wayland",
     "--enable-features=WaylandWindowDecorations",
 ]
+
+[[programs]]
+name = "Chromium Browsers"
+executables = ["brave-browser", "google-chrome", "chromium"]
+flags = [
+    "--enable-features=TouchpadOverscrollHistoryNavigation",
+    "--gtk-version=4",
+]
+
+# Disabled entry example
+[[programs]]
+name = "Disabled App"
+executables = ["some-app"]
+flags = ["--some-flag"]
+enabled = false
 ```
+
+### Feature Merging
+
+Waylandify automatically merges multiple `--enable-features` flags into a single flag, as Chromium-based applications expect. For example:
+
+```toml
+flags = [
+    "--enable-features=UseOzonePlatform",
+    "--enable-features=WaylandWindowDecorations",
+]
+```
+
+Will be merged into:
+```
+--enable-features=UseOzonePlatform,WaylandWindowDecorations
+```
+
+This behavior can be disabled per-program by setting `merge_enable_features = false`.
 
 ## How It Works
 
-1. **Discovery**: Waylandify searches for executables in your system PATH
-2. **Matching**: Finds all `.desktop` files that reference those executables
-3. **Parsing**: Uses a sophisticated parser to understand existing command arguments
-4. **Modification**: Adds new flags intelligently, avoiding duplicates
-5. **Backup**: Creates timestamped backups before any changes
+1. **Indexing**: Waylandify first scans standard directories (including Flatpak and Snap locations) to build an efficient index of all `.desktop` files. This index maps the executable names found in their `Exec=` lines to the corresponding desktop file paths.
+
+2. **Matching**: For each program defined in your `config.toml`, Waylandify uses this index to find all `.desktop` files that reference any of the specified executables.
+
+3. **Parsing**: Uses a sophisticated parser to understand existing command arguments within the matched desktop files.
+
+4. **Modification**: Adds new flags intelligently, avoiding duplicates and merging `--enable-features` flags.
+
+5. **Backup**: Creates timestamped backups before any changes.
+
 6. **Application**: Writes modified desktop files to `~/.local/share/applications/`
 
 ## Safety and Backups
@@ -163,6 +218,18 @@ Three ways to revert modifications:
 
 3. **Manual restoration**: Copy files from backup directory manually
 
+## Supported Desktop File Locations
+
+Waylandify searches for desktop files in the following locations:
+
+- `/usr/share/applications` - System applications
+- `/usr/local/share/applications` - Locally installed applications
+- `~/.local/share/applications` - User applications
+- `/var/lib/flatpak/exports/share/applications` - System Flatpak apps
+- `~/.local/share/flatpak/exports/share/applications` - User Flatpak apps
+- `/var/lib/snapd/desktop/applications` - Snap applications
+- Directories from `$XDG_DATA_DIRS`
+
 ## Common Wayland Flags
 
 ### Chromium-based Applications
@@ -191,6 +258,12 @@ flags = [
 flags = ["--gtk-version=4"]
 ```
 
+### Touchpad Gestures (Chromium)
+
+```toml
+flags = ["--enable-features=TouchpadOverscrollHistoryNavigation"]
+```
+
 ## Troubleshooting
 
 ### Changes not taking effect
@@ -203,9 +276,10 @@ After applying changes, you may need to:
 ### Desktop file not found
 
 If waylandify can't find the desktop file:
-1. Check if the executable is in your PATH: `which <executable-name>`
-2. Manually search for desktop files: `find /usr/share/applications ~/.local/share/applications -name "*.desktop"`
-3. Verify the executable name in the desktop file matches your config
+1. Run `waylandify list` to see what's detected
+2. Check if the executable is in your PATH: `which <executable-name>`
+3. Manually search for desktop files: `find /usr/share/applications ~/.local/share/applications -name "*.desktop"`
+4. Verify the executable name in the desktop file matches your config
 
 ### Flags not working
 
@@ -224,7 +298,7 @@ The project is organized into modules:
 - **discovery.py**: Executable and desktop file discovery
 - **backup.py**: Backup creation and restoration
 
-### Running Tests
+### Running from Source
 
 ```bash
 # Install development dependencies
@@ -232,6 +306,9 @@ uv sync
 
 # Run the CLI
 uv run waylandify --help
+
+# Run with a specific command
+uv run waylandify status
 ```
 
 ## Contributing

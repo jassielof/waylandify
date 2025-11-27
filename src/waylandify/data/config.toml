@@ -6,11 +6,13 @@
 # - 'name': A unique name for this entry (e.g., "vscode").
 # - 'executables': A list of binary names to search for (e.g., ["code", "code-insiders"]).
 # - 'flags': A list of command-line flags to apply.
+# - 'enabled': (optional) Set to false to skip this entry. Default: true
+# - 'merge_enable_features': (optional) Merge --enable-features flags. Default: true
 #
 
 [[programs]]
 name = "Electron Apps"
-executables = ["code", "code-insiders"]
+executables = ["code", "code-insiders", "code-oss"]
 flags = [
     "--enable-features=UseOzonePlatform",
     "--ozone-platform=wayland",
@@ -24,8 +26,19 @@ executables = [
     "brave-browser-stable",
     "microsoft-edge",
     "microsoft-edge-stable",
+    "google-chrome",
+    "google-chrome-stable",
+    "chromium",
+    "chromium-browser",
 ]
 flags = [
     "--enable-features=TouchpadOverscrollHistoryNavigation",
     "--gtk-version=4",
 ]
+
+# Example: Disabled entry
+# [[programs]]
+# name = "Disabled Example"
+# executables = ["some-app"]
+# flags = ["--some-flag"]
+# enabled = false

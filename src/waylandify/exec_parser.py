@@ -14,6 +14,8 @@ import shlex
 from dataclasses import dataclass
 from enum import Enum
 
+from rich import print as rprint
+
 
 class ArgumentType(Enum):
     """Types of arguments found in Exec commands."""
@@ -83,16 +85,63 @@ class ExecCommand:
                     return True
         return False
 
-    def add_flag(self, flag: str) -> bool:
+    def get_enable_features(self) -> list[str]:
+        """
+        Get all features from --enable-features flags.
+
+        Returns:
+            List of feature names
+        """
+        features = []
+        for arg in self.arguments:
+            if arg.type == ArgumentType.LONG_FLAG and arg.value == "--enable-features":
+                if arg.attached_value:
+                    features.extend(arg.attached_value.split(","))
+        return features
+
+    def add_flag(self, flag: str, merge_enable_features: bool = True) -> bool:
         """
         Add a flag to the command if it doesn't already exist.
 
+        For --enable-features flags, merges the features into an existing
+        --enable-features flag if merge_enable_features is True.
+
         Args:
             flag: The flag to add (e.g., "--ozone-platform=wayland", "-f value")
+            merge_enable_features: If True, merge --enable-features values
 
         Returns:
-            True if the flag was added, False if it already exists
+            True if the flag was added or modified, False if it already exists
         """
+        # Special handling for --enable-features
+        if merge_enable_features and flag.startswith("--enable-features="):
+            new_features = flag.split("=", 1)[1].split(",")
+            existing_features = self.get_enable_features()
+
+            # Check if all new features already exist
+            features_to_add = [f for f in new_features if f not in existing_features]
+            if not features_to_add:
+                return False
+
+            # Find existing --enable-features argument and merge
+            for arg in self.arguments:
+                if (
+                    arg.type == ArgumentType.LONG_FLAG
+                    and arg.value == "--enable-features"
+                ):
+                    if arg.attached_value:
+                        arg.attached_value = ",".join(
+                            existing_features + features_to_add
+                        )
+                    else:
+                        arg.attached_value = ",".join(features_to_add)
+                    return True
+
+            # No existing --enable-features, add new one
+            parsed_arg = _parse_single_argument(flag)
+            self.arguments.insert(0, parsed_arg)
+            return True
+
         if self.has_flag(flag):
             return False
 
@@ -186,8 +235,8 @@ def parse_exec_command(exec_string: str) -> ExecCommand:
         parts = shlex.split(exec_string)
     except ValueError as e:
         # Fallback to simple split if shlex fails
-        print(
-            f"Warning: shlex failed to parse exec string: {e}. Falling back to simple split."
+        rprint(
+            f"[yellow]Warning: shlex failed to parse exec string: {e}. Falling back to simple split.[/yellow]"
         )
         parts = exec_string.split()
 
@@ -200,13 +249,17 @@ def parse_exec_command(exec_string: str) -> ExecCommand:
     return ExecCommand(executable=executable, arguments=arguments)
 
 
-def add_flags_to_exec(exec_string: str, flags: list[str]) -> tuple[str, bool]:
+def add_flags_to_exec(
+    exec_string: str, flags: list[str], merge_enable_features: bool = True
+) -> tuple[str, bool]:
     """
     Add flags to an Exec command string, avoiding duplicates.
 
     Args:
         exec_string: The original Exec command string
         flags: List of flags to add
+        merge_enable_features: If True, merge --enable-features values instead
+            of adding duplicate flags
 
     Returns:
         A tuple of (modified_command_string, was_modified)
@@ -223,7 +276,7 @@ def add_flags_to_exec(exec_string: str, flags: list[str]) -> tuple[str, bool]:
 
     modified = False
     for flag in flags:
-        if cmd.add_flag(flag):
+        if cmd.add_flag(flag, merge_enable_features=merge_enable_features):
             modified = True
 
     return str(cmd), modified
@@ -258,3 +311,59 @@ def compare_exec_commands(cmd1: str, cmd2: str) -> bool:
     except ValueError:
         # If parsing fails, fall back to string comparison
         return cmd1.strip() == cmd2.strip()
+
+
+def merge_flags(flags: list[str], merge_enable_features: bool = True) -> list[str]:
+    """
+    Merge a list of flags, combining --enable-features values.
+
+    This is useful for displaying what flags will actually be applied.
+
+    Args:
+        flags: List of flags to merge
+        merge_enable_features: If True, combine --enable-features flags
+
+    Returns:
+        List of merged flags
+
+    Example:
+        >>> merge_flags(["--enable-features=A", "--ozone-platform=wayland", "--enable-features=B"])
+        ['--enable-features=A,B', '--ozone-platform=wayland']
+    """
+    if not merge_enable_features:
+        return flags
+
+    enable_features: list[str] = []
+    other_flags: list[str] = []
+
+    for flag in flags:
+        if flag.startswith("--enable-features="):
+            features = flag.split("=", 1)[1].split(",")
+            for f in features:
+                if f not in enable_features:
+                    enable_features.append(f)
+        else:
+            if flag not in other_flags:
+                other_flags.append(flag)
+
+    result = []
+    if enable_features:
+        result.append(f"--enable-features={','.join(enable_features)}")
+    result.extend(other_flags)
+
+    return result
+
+
+def format_flags_display(flags: list[str], merge_enable_features: bool = True) -> str:
+    """
+    Format flags for display, merging --enable-features if needed.
+
+    Args:
+        flags: List of flags
+        merge_enable_features: If True, merge --enable-features flags
+
+    Returns:
+        Space-separated string of merged flags
+    """
+    merged = merge_flags(flags, merge_enable_features)
+    return " ".join(merged)

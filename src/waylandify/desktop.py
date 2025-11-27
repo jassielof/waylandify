@@ -12,7 +12,9 @@ from pathlib import Path
 from . import exec_parser
 
 
-def add_flags_to_exec_command(exec_cmd: str, flags: list[str]) -> tuple[str, bool]:
+def add_flags_to_exec_command(
+    exec_cmd: str, flags: list[str], merge_enable_features: bool = True
+) -> tuple[str, bool]:
     """
     Intelligently adds flags to an Exec command string, avoiding duplicates.
 
@@ -22,6 +24,8 @@ def add_flags_to_exec_command(exec_cmd: str, flags: list[str]) -> tuple[str, boo
     Args:
         exec_cmd: The original Exec command string
         flags: List of flags to add to the command
+        merge_enable_features: If True, merge --enable-features values instead
+            of adding duplicate flags (Chromium-style)
 
     Returns:
         A tuple of (modified_command, was_modified) where was_modified indicates
@@ -34,16 +38,22 @@ def add_flags_to_exec_command(exec_cmd: str, flags: list[str]) -> tuple[str, boo
         >>> add_flags_to_exec_command("/usr/bin/code --ozone-platform=wayland", ["--ozone-platform=wayland"])
         ('/usr/bin/code --ozone-platform=wayland', False)
     """
-    return exec_parser.add_flags_to_exec(exec_cmd, flags)
+    return exec_parser.add_flags_to_exec(
+        exec_cmd, flags, merge_enable_features=merge_enable_features
+    )
 
 
-def apply_flags_to_desktop_file(path: Path, flags: list[str]) -> tuple[str, bool]:
+def apply_flags_to_desktop_file(
+    path: Path, flags: list[str], merge_enable_features: bool = True
+) -> tuple[str, bool]:
     """
     Parses a .desktop file, applies flags to all Exec keys, and returns the new content.
 
     Args:
         path: Path to the .desktop file to modify
         flags: List of command-line flags to add
+        merge_enable_features: If True, merge --enable-features values instead
+            of adding duplicate flags (Chromium-style)
 
     Returns:
         A tuple of (modified_content, was_modified) where was_modified indicates
@@ -87,7 +97,9 @@ def apply_flags_to_desktop_file(path: Path, flags: list[str]) -> tuple[str, bool
     for section in parser.sections():
         if parser.has_option(section, "Exec"):
             original_exec = parser.get(section, "Exec")
-            modified_exec, was_modified = add_flags_to_exec_command(original_exec, flags)
+            modified_exec, was_modified = add_flags_to_exec_command(
+                original_exec, flags, merge_enable_features=merge_enable_features
+            )
             if was_modified:
                 parser.set(section, "Exec", modified_exec)
                 any_modified = True
