@@ -61,7 +61,9 @@ def _load_config_or_exit() -> config.Config:
     try:
         return config.load_config()
     except FileNotFoundError:
-        print("[bold red]Config file not found. Run 'waylandify init' first.[/bold red]")
+        print(
+            "[bold red]Config file not found. Run 'waylandify init' first.[/bold red]"
+        )
         raise typer.Exit(code=1)
     except Exception:
         raise typer.Exit(code=1)
@@ -118,6 +120,14 @@ def apply(
             help="Show detailed output for each file.",
         ),
     ] = False,
+    prune: Annotated[
+        bool,
+        typer.Option(
+            "--prune",
+            "-p",
+            help="Also remove orphan desktop files from uninstalled applications.",
+        ),
+    ] = False,
 ):
     """
     Apply Wayland flags to applications defined in the config file.
@@ -130,12 +140,15 @@ def apply(
         $ waylandify apply               # Apply changes
         $ waylandify apply --interactive # Confirm each change
         $ waylandify apply --verbose     # Show detailed output
+        $ waylandify apply --prune       # Apply and remove orphan files
     """
     if dry_run:
         print("[bold yellow]Dry-run mode: No files will be changed.[/bold yellow]\n")
 
     if interactive:
-        print("[bold cyan]Interactive mode: You will be prompted for each change.[/bold cyan]\n")
+        print(
+            "[bold cyan]Interactive mode: You will be prompted for each change.[/bold cyan]\n"
+        )
 
     cfg = _load_config_or_exit()
     user_desktop_dir = config.get_user_desktop_dir()
@@ -167,7 +180,9 @@ def apply(
 
         if not related_files:
             if verbose:
-                print(f"[yellow]⚠️  No desktop files found for '{program_settings.name}'[/yellow]")
+                print(
+                    f"[yellow]⚠️  No desktop files found for '{program_settings.name}'[/yellow]"
+                )
             continue
 
         # Get merged flags for display
@@ -252,19 +267,64 @@ def apply(
     # Summary
     print()
     if stats["files_modified"] == 0 and stats["files_already_ok"] > 0:
-        print(f"[bold green]✨ All {stats['files_already_ok']} file(s) already have the correct flags.[/bold green]")
+        print(
+            f"[bold green]✨ All {stats['files_already_ok']} file(s) already have the correct flags.[/bold green]"
+        )
     elif dry_run:
-        print(f"[bold yellow]Would modify {stats['files_modified']} file(s).[/bold yellow]")
+        print(
+            f"[bold yellow]Would modify {stats['files_modified']} file(s).[/bold yellow]"
+        )
         if stats["files_already_ok"] > 0:
             print(f"[dim]{stats['files_already_ok']} file(s) already OK.[/dim]")
     else:
-        print(f"[bold green]✨ Modified {stats['files_modified']} file(s).[/bold green]")
+        print(
+            f"[bold green]✨ Modified {stats['files_modified']} file(s).[/bold green]"
+        )
         if stats["files_already_ok"] > 0:
-            print(f"[dim]{stats['files_already_ok']} file(s) already had correct flags.[/dim]")
+            print(
+                f"[dim]{stats['files_already_ok']} file(s) already had correct flags.[/dim]"
+            )
         if stats["files_skipped"] > 0:
             print(f"[dim]{stats['files_skipped']} file(s) skipped by user.[/dim]")
         if stats["errors"] > 0:
             print(f"[yellow]{stats['errors']} error(s) occurred.[/yellow]")
+
+    # Prune orphan desktop files if requested
+    if prune:
+        print()
+        # Get all system desktop file names (excluding user directory)
+        system_desktop_files: set[str] = set()
+        for directory in indexer.desktop_file_dirs:
+            # Exclude user directory - we're looking for system-installed files
+            if directory == user_desktop_dir:
+                continue
+            if directory.is_dir():
+                for desktop_file in directory.glob("*.desktop"):
+                    system_desktop_files.add(desktop_file.name)
+
+        orphans = backup.find_orphan_desktop_files(system_desktop_files)
+
+        if orphans:
+            print(
+                f"[bold yellow]Found {len(orphans)} orphan desktop file(s):[/bold yellow]"
+            )
+            for orphan in orphans:
+                target_path = Path(orphan["target_path"])
+                print(
+                    f"  🗑️  [cyan]{target_path.name}[/cyan] ({orphan.get('program_name', 'Unknown')})"
+                )
+
+            if dry_run:
+                print(
+                    f"\n[bold yellow]Would remove {len(orphans)} orphan file(s).[/bold yellow]"
+                )
+            else:
+                removed = backup.remove_orphan_files(orphans)
+                print(
+                    f"\n[bold green]✨ Removed {removed} orphan desktop file(s).[/bold green]"
+                )
+        else:
+            print("[dim]No orphan desktop files found.[/dim]")
 
 
 @app.command()
@@ -300,7 +360,9 @@ def restore(
         print("[bold yellow]Removing modified desktop files...[/bold yellow]")
         count = backup.remove_user_desktop_files()
         if count > 0:
-            print(f"\n[bold green]✨ Removed {count} file(s). System will now use default desktop files.[/bold green]")
+            print(
+                f"\n[bold green]✨ Removed {count} file(s). System will now use default desktop files.[/bold green]"
+            )
         else:
             print("[dim]No modified desktop files found.[/dim]")
         return
@@ -321,7 +383,9 @@ def restore(
                 backup_dirs[dir_name] = []
             backup_dirs[dir_name].append(b)
 
-        table = Table(title="Available Backups", show_header=True, header_style="bold magenta")
+        table = Table(
+            title="Available Backups", show_header=True, header_style="bold magenta"
+        )
         table.add_column("Backup ID", style="cyan")
         table.add_column("Date/Time", style="green")
         table.add_column("Files", justify="right", style="yellow")
@@ -373,7 +437,9 @@ def list_programs():
     cfg = _load_config_or_exit()
     indexer = _create_indexer()
 
-    table = Table(title="Configured Programs", show_header=True, header_style="bold magenta")
+    table = Table(
+        title="Configured Programs", show_header=True, header_style="bold magenta"
+    )
     table.add_column("Program", style="cyan")
     table.add_column("Status", style="green")
     table.add_column("Flags", style="dim")
@@ -462,6 +528,57 @@ def status():
         print(f"  📁 Location: {backup.BACKUP_DIR}")
     else:
         print("  [dim]No backups found.[/dim]")
+
+    # Orphan files check
+    print("\n[bold cyan]Orphan Files:[/bold cyan]")
+    indexer = _create_indexer()
+    user_desktop_dir = config.get_user_desktop_dir()
+    system_desktop_files: set[str] = set()
+    for directory in indexer.desktop_file_dirs:
+        # Exclude user directory - we're looking for system-installed files
+        if directory == user_desktop_dir:
+            continue
+        if directory.is_dir():
+            for desktop_file in directory.glob("*.desktop"):
+                system_desktop_files.add(desktop_file.name)
+
+    # Find tracked orphans
+    orphans = backup.find_orphan_desktop_files(system_desktop_files)
+
+    # Also find untracked orphans
+    untracked_orphans: list[dict] = []
+    if user_desktop_dir.exists():
+        tracked_files = {Path(o["target_path"]).name for o in orphans}
+        tracked_files.update(
+            Path(m["target_path"]).name for m in backup.get_modified_files()
+        )
+
+        for desktop_file in user_desktop_dir.glob("*.desktop"):
+            # Skip if already tracked
+            if desktop_file.name in tracked_files:
+                continue
+            # Skip if the file exists in system directories (not an orphan)
+            if desktop_file.name in system_desktop_files:
+                continue
+            # Check if the executable exists
+            if not backup._check_executable_exists(desktop_file):
+                untracked_orphans.append(
+                    {
+                        "target_path": str(desktop_file),
+                        "program_name": "Untracked",
+                    }
+                )
+
+    all_orphans = orphans + untracked_orphans
+
+    if all_orphans:
+        print(f"  [yellow]⚠️  {len(all_orphans)} orphan file(s) detected[/yellow]")
+        for orphan in all_orphans:
+            target = Path(orphan["target_path"])
+            print(f"    • {target.name} ({orphan.get('program_name', 'Unknown')})")
+        print("\n  [dim]Run [cyan]waylandify prune[/cyan] to remove orphans.[/dim]")
+    else:
+        print("  [dim]No orphan files found.[/dim]")
 
 
 @app.command()
@@ -627,9 +744,13 @@ def verify():
         print("[dim]No modified desktop files found to verify.[/dim]")
         print("Run [cyan]waylandify apply[/cyan] first.")
     elif issues_found == 0:
-        print(f"[bold green]✅ All {files_ok} file(s) verified successfully![/bold green]")
+        print(
+            f"[bold green]✅ All {files_ok} file(s) verified successfully![/bold green]"
+        )
     else:
-        print(f"[bold yellow]⚠️  {issues_found} file(s) have missing flags.[/bold yellow]")
+        print(
+            f"[bold yellow]⚠️  {issues_found} file(s) have missing flags.[/bold yellow]"
+        )
         print(f"[dim]{files_ok} file(s) are OK.[/dim]")
         print("\nRun [cyan]waylandify apply[/cyan] to re-apply flags.")
         raise typer.Exit(code=1)
@@ -703,7 +824,9 @@ def clean(
             print("[bold red]❌ --older-than must be at least 1 day.[/bold red]")
             raise typer.Exit(code=1)
 
-        print(f"[bold yellow]Removing backups older than {older_than} day(s)...[/bold yellow]")
+        print(
+            f"[bold yellow]Removing backups older than {older_than} day(s)...[/bold yellow]"
+        )
         dirs_removed, files_removed = backup.clean_old_backups(older_than)
 
         if dirs_removed > 0:
@@ -769,7 +892,9 @@ def validate():
 
         for flag in program.flags:
             if not flag.startswith("-"):
-                warnings.append(f"Flag '{flag}' in '{program.name}' doesn't start with '-'")
+                warnings.append(
+                    f"Flag '{flag}' in '{program.name}' doesn't start with '-'"
+                )
 
     print("\n" + "-" * 40)
 
@@ -790,3 +915,123 @@ def validate():
         print("\n[bold yellow]⚠️  Valid with warnings.[/bold yellow]")
     else:
         print("\n[bold green]✅ Configuration is valid![/bold green]")
+
+
+@app.command()
+def prune(
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run",
+            "-n",
+            help="Show what would be removed without actually removing anything.",
+        ),
+    ] = False,
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force",
+            "-f",
+            help="Remove orphan files without confirmation.",
+        ),
+    ] = False,
+):
+    """
+    Remove orphan desktop files from uninstalled applications.
+
+    Detects and removes desktop files in ~/.local/share/applications
+    whose executables no longer exist (application was uninstalled).
+
+    This is useful when:
+    - You uninstall an application (like Vivaldi or a PWA)
+    - The modified desktop file remains in ~/.local/share/applications
+    - The system no longer has the original desktop file
+
+    Examples:
+        $ waylandify prune --dry-run  # Preview what would be removed
+        $ waylandify prune            # Remove orphans (with confirmation)
+        $ waylandify prune --force    # Remove orphans without confirmation
+    """
+    if dry_run:
+        print("[bold yellow]Dry-run mode: No files will be removed.[/bold yellow]\n")
+
+    indexer = _create_indexer()
+    user_desktop_dir = config.get_user_desktop_dir()
+
+    # Get all system desktop file names (excluding user directory)
+    system_desktop_files: set[str] = set()
+    for directory in indexer.desktop_file_dirs:
+        # Exclude user directory - we're looking for system-installed files
+        if directory == user_desktop_dir:
+            continue
+        if directory.is_dir():
+            for desktop_file in directory.glob("*.desktop"):
+                system_desktop_files.add(desktop_file.name)
+
+    # Find all orphan desktop files in user directory
+    all_orphans: list[dict] = []
+    tracked_modifications = {
+        Path(m["target_path"]).name: m for m in backup.get_modified_files()
+    }
+
+    if user_desktop_dir.exists():
+        for desktop_file in user_desktop_dir.glob("*.desktop"):
+            # Skip if the file exists in system directories (not an orphan)
+            if desktop_file.name in system_desktop_files:
+                continue
+
+            # Check if the executable exists
+            if not backup._check_executable_exists(desktop_file):
+                # Check if we have tracking info for this file
+                if desktop_file.name in tracked_modifications:
+                    mod_info = tracked_modifications[desktop_file.name]
+                    all_orphans.append(
+                        {
+                            "target_path": str(desktop_file),
+                            "source_path": mod_info.get(
+                                "source_path", str(desktop_file)
+                            ),
+                            "program_name": mod_info.get("program_name", "Unknown"),
+                            "reason": "Executable not found",
+                        }
+                    )
+                else:
+                    all_orphans.append(
+                        {
+                            "target_path": str(desktop_file),
+                            "source_path": str(desktop_file),
+                            "program_name": "Untracked",
+                            "reason": "Executable not found",
+                        }
+                    )
+
+    if not all_orphans:
+        print("[bold green]✨ No orphan desktop files found.[/bold green]")
+        return
+
+    print(
+        f"[bold yellow]Found {len(all_orphans)} orphan desktop file(s):[/bold yellow]\n"
+    )
+
+    for orphan in all_orphans:
+        target_path = Path(orphan["target_path"])
+        print(f"  🗑️  [cyan]{target_path.name}[/cyan]")
+        print(f"      [dim]Program: {orphan.get('program_name', 'Unknown')}[/dim]")
+        print(f"      [dim]Reason: {orphan.get('reason', 'Source not found')}[/dim]")
+
+    print()
+
+    if dry_run:
+        print(f"[bold yellow]Would remove {len(all_orphans)} file(s).[/bold yellow]")
+        return
+
+    if not force:
+        confirm = typer.confirm("Remove these orphan desktop files?")
+        if not confirm:
+            print("[dim]Cancelled.[/dim]")
+            return
+
+    # Remove orphan files and update metadata
+    removed = backup.remove_orphan_files(all_orphans)
+
+    print(f"\n[bold green]✨ Removed {removed} orphan desktop file(s).[/bold green]")

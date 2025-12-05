@@ -141,7 +141,9 @@ def remove_modification_record(file_path: Path) -> bool:
     metadata = _load_metadata()
     original_count = len(metadata.get("modifications", []))
     metadata["modifications"] = [
-        m for m in metadata.get("modifications", []) if m["target_path"] != str(file_path)
+        m
+        for m in metadata.get("modifications", [])
+        if m["target_path"] != str(file_path)
     ]
     _save_metadata(metadata)
     return len(metadata["modifications"]) < original_count
@@ -211,10 +213,14 @@ def restore_from_backup(backup_dir: str | Path) -> bool:
         return False
 
     metadata = _load_metadata()
-    backups = [b for b in metadata.get("backups", []) if b["backup_dir"] == str(backup_dir)]
+    backups = [
+        b for b in metadata.get("backups", []) if b["backup_dir"] == str(backup_dir)
+    ]
 
     if not backups:
-        rprint(f"[bold red]❌ No metadata found for backup directory: {backup_dir}[/bold red]")
+        rprint(
+            f"[bold red]❌ No metadata found for backup directory: {backup_dir}[/bold red]"
+        )
         return False
 
     success = True
@@ -325,7 +331,9 @@ def clean_old_backups(older_than_days: int) -> tuple[int, int]:
         try:
             # Parse timestamp from format: YYYYMMDD_HHMMSS_microseconds
             timestamp_str = backup_info["timestamp"]
-            backup_date = datetime.datetime.strptime(timestamp_str[:15], "%Y%m%d_%H%M%S")
+            backup_date = datetime.datetime.strptime(
+                timestamp_str[:15], "%Y%m%d_%H%M%S"
+            )
 
             if backup_date < cutoff_date:
                 dirs_to_remove.add(backup_info["backup_dir"])
@@ -366,7 +374,9 @@ def get_backup_stats() -> dict:
     modifications = metadata.get("modifications", [])
 
     # Count existing modified files
-    existing_modifications = [m for m in modifications if Path(m["target_path"]).exists()]
+    existing_modifications = [
+        m for m in modifications if Path(m["target_path"]).exists()
+    ]
 
     if not backups and not existing_modifications:
         return {
@@ -395,3 +405,151 @@ def get_backup_stats() -> dict:
         "oldest": min(timestamps) if timestamps else None,
         "newest": max(timestamps) if timestamps else None,
     }
+
+
+def find_orphan_desktop_files(system_desktop_files: set[str]) -> list[dict]:
+    """
+    Find orphan desktop files - files modified by waylandify whose source no longer exists.
+
+    An orphan occurs when:
+    1. A desktop file was modified by waylandify (tracked in metadata)
+    2. The user desktop file still exists
+    3. AND one of the following:
+       - The original source desktop file no longer exists in system directories
+       - The executable referenced in the desktop file no longer exists
+
+    Args:
+        system_desktop_files: Set of desktop file names that currently exist in system directories
+
+    Returns:
+        List of orphan modification records with additional 'reason' field
+    """
+    metadata = _load_metadata()
+    modifications = metadata.get("modifications", [])
+    orphans = []
+
+    for mod in modifications:
+        target_path = Path(mod["target_path"])
+        source_path = Path(mod["source_path"])
+
+        # Skip if the user desktop file doesn't exist
+        if not target_path.exists():
+            continue
+
+        filename = target_path.name
+
+        # Check if the source file still exists (for files from system directories)
+        source_exists = source_path.exists()
+
+        # Check if the filename exists in any system directory
+        in_system = filename in system_desktop_files
+
+        # Check if the executable in the desktop file still exists
+        executable_exists = _check_executable_exists(target_path)
+
+        # Determine if it's an orphan and why
+        if not executable_exists:
+            orphans.append(
+                {
+                    **mod,
+                    "reason": "Executable not found",
+                }
+            )
+        elif not source_exists and not in_system:
+            # Source was from system but no longer there
+            orphans.append(
+                {
+                    **mod,
+                    "reason": "Source desktop file removed",
+                }
+            )
+
+    return orphans
+
+
+def _check_executable_exists(desktop_file_path: Path) -> bool:
+    """
+    Check if the executable referenced in a desktop file exists.
+
+    Args:
+        desktop_file_path: Path to the .desktop file
+
+    Returns:
+        True if the executable exists, False otherwise
+    """
+    import re
+    import shutil
+
+    try:
+        content = desktop_file_path.read_text()
+        for line in content.splitlines():
+            line = line.strip()
+            if line.lower().startswith("exec="):
+                command_str = line.split("=", 1)[1].strip()
+                if not command_str:
+                    return False
+
+                # Skip 'env' command prefix
+                if command_str.startswith("env "):
+                    parts = command_str.split()
+                    for i, part in enumerate(parts[1:], 1):
+                        if "=" not in part:
+                            command_str = " ".join(parts[i:])
+                            break
+
+                # Extract the executable path
+                match = re.match(r'^"?([^"\s]+)"?', command_str)
+                if match:
+                    exec_path = match.group(1)
+
+                    # If it's a full path, check if it exists
+                    if exec_path.startswith("/"):
+                        return Path(exec_path).exists()
+
+                    # Otherwise, check if it's in PATH
+                    return shutil.which(exec_path) is not None
+
+                return False
+    except (IOError, UnicodeDecodeError):
+        return False
+
+    return False
+
+    return orphans
+
+
+def remove_orphan_files(orphans: list[dict]) -> int:
+    """
+    Remove orphan desktop files and update tracking metadata.
+
+    Args:
+        orphans: List of orphan records from find_orphan_desktop_files()
+
+    Returns:
+        Number of files removed
+    """
+    removed_count = 0
+    metadata = _load_metadata()
+
+    for orphan in orphans:
+        target_path = Path(orphan["target_path"])
+
+        try:
+            if target_path.exists():
+                target_path.unlink()
+                rprint(f"[dim]🗑️  Removed orphan: {target_path.name}[/dim]")
+                removed_count += 1
+
+            # Remove from modifications tracking
+            metadata["modifications"] = [
+                m
+                for m in metadata.get("modifications", [])
+                if m["target_path"] != orphan["target_path"]
+            ]
+        except Exception as e:
+            rprint(f"[yellow]⚠️  Could not remove {target_path}: {e}[/yellow]")
+
+    if removed_count > 0:
+        _save_metadata(metadata)
+
+    return removed_count
