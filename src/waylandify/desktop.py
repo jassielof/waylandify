@@ -114,3 +114,65 @@ def apply_flags_to_desktop_file(
         result = f"{shebang}\n{result}"
 
     return result, any_modified
+
+
+def sync_flags_to_desktop_file(
+    user_path: Path,
+    system_path: Path,
+    desired_flags: list[str],
+    previous_flags: list[str],  # Kept for API compatibility but not used
+    merge_enable_features: bool = True,
+) -> tuple[str, bool]:
+    """
+    Synchronize flags in a desktop file using the system file as baseline.
+
+    This function:
+    1. ALWAYS reads the system desktop file (original, unmodified baseline)
+    2. Applies desired flags to the baseline
+    3. Compares with current user file (if exists)
+    4. Returns (new_content, was_modified)
+
+    This ensures flag sync works correctly regardless of metadata state.
+
+    Args:
+        user_path: Path to the user's modified desktop file
+        system_path: Path to the original system desktop file
+        desired_flags: List of flags that should be present
+        previous_flags: Unused, kept for API compatibility
+        merge_enable_features: If True, merge --enable-features values
+
+    Returns:
+        A tuple of (modified_content, was_modified)
+
+    Raises:
+        FileNotFoundError: If system file doesn't exist
+        ValueError: If the desktop file cannot be parsed
+    """
+    # ALWAYS read from system file as baseline
+    if not system_path.exists():
+        # Fall back to user file if system doesn't exist (e.g., user-created entries)
+        if user_path.exists():
+            source_path = user_path
+        else:
+            raise FileNotFoundError(f"Neither {user_path} nor {system_path} found")
+    else:
+        source_path = system_path
+
+    # Read and apply flags to the baseline (system file)
+    new_content, _ = apply_flags_to_desktop_file(
+        source_path, desired_flags, merge_enable_features=merge_enable_features
+    )
+
+    # Compare with current user file content
+    if user_path.exists():
+        try:
+            current_content = user_path.read_text().strip()
+            # Normalize both for comparison (strip whitespace)
+            was_modified = new_content.strip() != current_content
+        except (IOError, UnicodeDecodeError):
+            was_modified = True
+    else:
+        # User file doesn't exist, so we need to create it
+        was_modified = True
+
+    return new_content, was_modified

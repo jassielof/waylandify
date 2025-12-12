@@ -150,6 +150,51 @@ class ExecCommand:
         self.arguments.insert(0, parsed_arg)  # Add new flags at the beginning
         return True
 
+    def remove_flag(self, flag: str) -> bool:
+        """
+        Remove a flag from the command if it exists.
+
+        For --enable-features flags, removes individual features from the
+        combined --enable-features argument.
+
+        Args:
+            flag: The flag to remove (e.g., "--ozone-platform=wayland")
+
+        Returns:
+            True if the flag was removed, False if not found
+        """
+        # Special handling for --enable-features
+        if flag.startswith("--enable-features="):
+            features_to_remove = set(flag.split("=", 1)[1].split(","))
+
+            for arg in self.arguments:
+                if (
+                    arg.type == ArgumentType.LONG_FLAG
+                    and arg.value == "--enable-features"
+                    and arg.attached_value
+                ):
+                    existing = arg.attached_value.split(",")
+                    remaining = [f for f in existing if f not in features_to_remove]
+
+                    if len(remaining) < len(existing):
+                        if remaining:
+                            arg.attached_value = ",".join(remaining)
+                        else:
+                            # Remove the entire --enable-features argument
+                            self.arguments.remove(arg)
+                        return True
+            return False
+
+        # Handle regular flags
+        flag_base = flag.split("=")[0] if "=" in flag else flag
+
+        for arg in self.arguments:
+            if arg.type in (ArgumentType.LONG_FLAG, ArgumentType.SHORT_FLAG):
+                if arg.value == flag_base:
+                    self.arguments.remove(arg)
+                    return True
+        return False
+
     def get_flag_value(self, flag: str) -> str | None:
         """
         Get the value associated with a flag.
@@ -276,6 +321,84 @@ def add_flags_to_exec(
 
     modified = False
     for flag in flags:
+        if cmd.add_flag(flag, merge_enable_features=merge_enable_features):
+            modified = True
+
+    return str(cmd), modified
+
+
+def remove_flags_from_exec(
+    exec_string: str, flags: list[str]
+) -> tuple[str, bool]:
+    """
+    Remove flags from an Exec command string.
+
+    Args:
+        exec_string: The original Exec command string
+        flags: List of flags to remove
+
+    Returns:
+        A tuple of (modified_command_string, was_modified)
+        where was_modified is True if any flags were removed
+    """
+    if not exec_string or not exec_string.strip():
+        return "", False
+
+    try:
+        cmd = parse_exec_command(exec_string)
+    except ValueError:
+        return exec_string, False
+
+    modified = False
+    for flag in flags:
+        if cmd.remove_flag(flag):
+            modified = True
+
+    return str(cmd), modified
+
+
+def sync_flags_to_exec(
+    exec_string: str,
+    desired_flags: list[str],
+    previous_flags: list[str],
+    merge_enable_features: bool = True,
+) -> tuple[str, bool]:
+    """
+    Synchronize flags in an Exec command to match the desired set.
+
+    Removes flags that were previously applied but are no longer desired,
+    then adds any new desired flags.
+
+    Args:
+        exec_string: The original Exec command string
+        desired_flags: List of flags that should be present
+        previous_flags: List of flags that were previously applied (to remove if not in desired)
+        merge_enable_features: If True, merge --enable-features values
+
+    Returns:
+        A tuple of (modified_command_string, was_modified)
+    """
+    if not exec_string or not exec_string.strip():
+        return "", False
+
+    try:
+        cmd = parse_exec_command(exec_string)
+    except ValueError:
+        return exec_string, False
+
+    modified = False
+
+    # Normalize flags for comparison
+    desired_set = set(desired_flags)
+
+    # Remove previously applied flags that are no longer desired
+    for flag in previous_flags:
+        if flag not in desired_set:
+            if cmd.remove_flag(flag):
+                modified = True
+
+    # Add any new desired flags
+    for flag in desired_flags:
         if cmd.add_flag(flag, merge_enable_features=merge_enable_features):
             modified = True
 

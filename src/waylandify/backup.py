@@ -149,6 +149,162 @@ def remove_modification_record(file_path: Path) -> bool:
     return len(metadata["modifications"]) < original_count
 
 
+def get_previous_flags(file_path: Path) -> list[str]:
+    """
+    Get the previously applied flags for a file.
+
+    Args:
+        file_path: Path to the desktop file
+
+    Returns:
+        List of flags that were applied, or empty list if not tracked
+    """
+    metadata = _load_metadata()
+    for mod in metadata.get("modifications", []):
+        if mod["target_path"] == str(file_path):
+            return mod.get("flags_applied", [])
+    return []
+
+
+def find_stale_modifications(configured_targets: set[Path]) -> list[dict]:
+    """
+    Find modifications that are no longer tracked by the current config.
+
+    A stale modification occurs when:
+    1. A file was modified by waylandify (tracked in metadata)
+    2. The file is no longer in the set of currently configured targets
+
+    Args:
+        configured_targets: Set of target paths that are currently configured
+
+    Returns:
+        List of stale modification records
+    """
+    metadata = _load_metadata()
+    modifications = metadata.get("modifications", [])
+    stale = []
+
+    configured_str = {str(p) for p in configured_targets}
+
+    for mod in modifications:
+        target_path = Path(mod["target_path"])
+        # Only consider stale if the user file still exists
+        if target_path.exists() and mod["target_path"] not in configured_str:
+            stale.append(mod)
+
+    return stale
+
+
+def find_untracked_user_files(
+    configured_targets: set[Path],
+    user_desktop_dir: Path,
+    system_desktop_dirs: list[Path],
+) -> list[dict]:
+    """
+    Find user desktop files that are NOT in the current config but differ from system files.
+
+    These are files that were modified (by waylandify or manually) but:
+    1. Are not currently tracked in metadata
+    2. Are not currently configured
+    3. Differ from the system desktop file
+
+    Args:
+        configured_targets: Set of target paths that are currently configured
+        user_desktop_dir: User's local applications directory
+        system_desktop_dirs: List of system application directories
+
+    Returns:
+        List of untracked file records with 'target_path' and 'program_name' keys
+    """
+    if not user_desktop_dir.exists():
+        return []
+
+    metadata = _load_metadata()
+    tracked_paths = {m["target_path"] for m in metadata.get("modifications", [])}
+    configured_str = {str(p) for p in configured_targets}
+    untracked = []
+
+    # Build a map of system desktop files
+    system_files: dict[str, Path] = {}
+    for sys_dir in system_desktop_dirs:
+        if sys_dir.is_dir() and sys_dir != user_desktop_dir:
+            for desktop_file in sys_dir.glob("*.desktop"):
+                # Don't overwrite - first found has priority
+                if desktop_file.name not in system_files:
+                    system_files[desktop_file.name] = desktop_file
+
+    for user_file in user_desktop_dir.glob("*.desktop"):
+        user_file_str = str(user_file)
+
+        # Skip if already tracked in metadata
+        if user_file_str in tracked_paths:
+            continue
+
+        # Skip if currently configured
+        if user_file_str in configured_str:
+            continue
+
+        # Check if there's a corresponding system file
+        if user_file.name not in system_files:
+            continue
+
+        system_file = system_files[user_file.name]
+
+        try:
+            user_content = user_file.read_text()
+            system_content = system_file.read_text()
+
+            # If they differ, this is an untracked modification
+            if user_content != system_content:
+                untracked.append({
+                    "target_path": user_file_str,
+                    "program_name": "Untracked",
+                    "source_path": str(system_file),
+                })
+        except (IOError, UnicodeDecodeError):
+            # Can't read, skip it
+            continue
+
+    return untracked
+
+
+def remove_stale_modifications(stale: list[dict]) -> int:
+    """
+    Remove stale desktop files and their tracking records.
+
+    Args:
+        stale: List of stale modification records
+
+    Returns:
+        Number of files removed
+    """
+    removed_count = 0
+    metadata = _load_metadata()
+
+    for mod in stale:
+        target_path = Path(mod["target_path"])
+
+        try:
+            if target_path.exists():
+                target_path.unlink()
+                rprint(f"[dim]🗑️  Removed stale: {target_path.name}[/dim]")
+                removed_count += 1
+
+            # Remove from modifications tracking
+            metadata["modifications"] = [
+                m
+                for m in metadata.get("modifications", [])
+                if m["target_path"] != mod["target_path"]
+            ]
+        except Exception as e:
+            rprint(f"[yellow]⚠️  Could not remove {target_path}: {e}[/yellow]")
+
+    if removed_count > 0:
+        _save_metadata(metadata)
+
+    return removed_count
+
+
 def create_backup(file_path: Path) -> Path | None:
     """
     Creates a timestamped backup of a file.

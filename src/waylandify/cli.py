@@ -167,6 +167,9 @@ def apply(
         "errors": 0,
     }
 
+    # Track all configured target paths for stale detection
+    all_configured_targets: set[Path] = set()
+
     for program_settings in cfg.programs:
         if not program_settings.enabled:
             if verbose:
@@ -205,12 +208,19 @@ def apply(
             if target_path in processed_targets:
                 continue
 
-            file_to_check = target_path if target_path.exists() else source_path
+            # Track all configured targets for stale detection
+            all_configured_targets.add(target_path)
+
+            # Get previously applied flags for this file
+            previous_flags = backup.get_previous_flags(target_path)
 
             try:
-                modified_content, was_modified = desktop.apply_flags_to_desktop_file(
-                    file_to_check,
-                    program_settings.flags,
+                # Use sync to both remove old flags and add new ones
+                modified_content, was_modified = desktop.sync_flags_to_desktop_file(
+                    user_path=target_path,
+                    system_path=source_path,
+                    desired_flags=program_settings.flags,
+                    previous_flags=previous_flags,
                     merge_enable_features=program_settings.merge_enable_features,
                 )
             except (FileNotFoundError, ValueError) as e:
@@ -263,6 +273,40 @@ def apply(
                 except Exception as e:
                     stats["errors"] += 1
                     print(f"  [bold red]❌ {source_path.name}: {e}[/bold red]")
+
+    # Find and handle stale modifications (programs removed from config)
+    stale = backup.find_stale_modifications(all_configured_targets)
+
+    # Also find untracked user files that differ from system (modified before tracking)
+    untracked = backup.find_untracked_user_files(
+        all_configured_targets,
+        user_desktop_dir,
+        list(indexer.desktop_file_dirs),
+    )
+
+    # Combine both lists
+    all_stale = stale + untracked
+
+    if all_stale:
+        print()
+        print(
+            f"[bold yellow]Found {len(all_stale)} stale desktop file(s) (no longer in config):[/bold yellow]"
+        )
+        for mod in all_stale:
+            target_path = Path(mod["target_path"])
+            print(
+                f"  🗑️  [cyan]{target_path.name}[/cyan] ({mod.get('program_name', 'Unknown')})"
+            )
+
+        if dry_run:
+            print(
+                f"\n[bold yellow]Would remove {len(all_stale)} stale file(s).[/bold yellow]"
+            )
+        else:
+            removed = backup.remove_stale_modifications(all_stale)
+            print(
+                f"\n[bold green]✨ Removed {removed} stale desktop file(s).[/bold green]"
+            )
 
     # Summary
     print()
