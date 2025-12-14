@@ -5,20 +5,19 @@ This module provides the CLI commands for managing Wayland flags
 in desktop files for Chromium-based applications.
 """
 
-from rich import print
-from rich.console import Console
-
-from pathlib import Path
-from typing_extensions import Annotated
+import difflib
+import shutil
 from importlib.metadata import version
+from pathlib import Path
 
 import typer
-import shutil
+from rich import print
+from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
-import difflib
+from typing_extensions import Annotated
 
-from . import config, discovery, desktop, backup, exec_parser
+from . import backup, config, desktop, discovery, exec_parser
 
 console = Console()
 
@@ -54,7 +53,7 @@ def main(
     Automatically modifies .desktop files to enable Wayland support
     without touching system files.
     """
-    pass
+    app()
 
 
 def _load_config_or_exit() -> config.Config:
