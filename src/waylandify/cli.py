@@ -5,17 +5,18 @@ This module provides the CLI commands for managing Wayland flags
 in desktop files for Chromium-based applications.
 """
 
-import difflib
-import shutil
+from rich import print
+from rich.console import Console
+
 from pathlib import Path
 from typing_extensions import Annotated
 from importlib.metadata import version
 
 import typer
-from rich import print
+import shutil
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
-from rich.console import Console
+import difflib
 
 from . import config, discovery, desktop, backup, exec_parser
 

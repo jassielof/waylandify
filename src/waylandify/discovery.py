@@ -55,7 +55,9 @@ class DesktopFileIndexer:
     def __init__(self, desktop_file_dirs: list[Path] | None = None):
         self._desktop_files_by_executable: dict[str, list[Path]] = defaultdict(list)
         self.desktop_file_dirs = (
-            desktop_file_dirs if desktop_file_dirs is not None else get_desktop_file_dirs()
+            desktop_file_dirs
+            if desktop_file_dirs is not None
+            else get_desktop_file_dirs()
         )
         self._index_desktop_files()
 
@@ -121,7 +123,9 @@ class DesktopFileIndexer:
                     match = re.match(r'^"?([^"\s]+)"?', command_str)
                     if match:
                         exec_full_path = match.group(1)
-                        return Path(exec_full_path).name  # Return just the executable name
+                        return Path(
+                            exec_full_path
+                        ).name  # Return just the executable name
                     return None
         except (IOError, UnicodeDecodeError):
             return None

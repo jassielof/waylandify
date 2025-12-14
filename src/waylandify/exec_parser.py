@@ -327,9 +327,7 @@ def add_flags_to_exec(
     return str(cmd), modified
 
 
-def remove_flags_from_exec(
-    exec_string: str, flags: list[str]
-) -> tuple[str, bool]:
+def remove_flags_from_exec(exec_string: str, flags: list[str]) -> tuple[str, bool]:
     """
     Remove flags from an Exec command string.
 

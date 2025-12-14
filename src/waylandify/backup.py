@@ -256,11 +256,13 @@ def find_untracked_user_files(
 
             # If they differ, this is an untracked modification
             if user_content != system_content:
-                untracked.append({
-                    "target_path": user_file_str,
-                    "program_name": "Untracked",
-                    "source_path": str(system_file),
-                })
+                untracked.append(
+                    {
+                        "target_path": user_file_str,
+                        "program_name": "Untracked",
+                        "source_path": str(system_file),
+                    }
+                )
         except (IOError, UnicodeDecodeError):
             # Can't read, skip it
             continue
@@ -671,7 +673,7 @@ def _check_executable_exists(desktop_file_path: Path) -> bool:
 
     return False
 
-    return orphans
+    # return orphans
 
 
 def remove_orphan_files(orphans: list[dict]) -> int:

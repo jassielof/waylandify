@@ -53,9 +53,7 @@ def create_default_config() -> None:
     without making changes.
     """
     if CONFIG_FILE_PATH.exists():
-        print(
-            f"[yellow]Configuration file already exists at:[/] {CONFIG_FILE_PATH}"
-        )
+        print(f"[yellow]Configuration file already exists at:[/] {CONFIG_FILE_PATH}")
         return
     print(f"Creating default config at {CONFIG_FILE_PATH}...")
     try:
