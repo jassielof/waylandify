@@ -3,7 +3,7 @@ from rich.table import Table
 from typer import Typer
 
 from cli import exec_parser
-from cli.cli import _create_indexer, _load_config_or_exit
+from cli.utils import _create_indexer, _load_config_or_exit
 
 app = Typer()
 

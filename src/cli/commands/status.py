@@ -4,7 +4,7 @@ from rich import print
 import typer
 
 from cli import backup, config
-from cli.cli import _create_indexer
+from cli.utils import _create_indexer
 app = typer.Typer()
 
 

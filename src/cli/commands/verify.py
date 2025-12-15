@@ -4,7 +4,7 @@ import typer
 from rich import print
 
 from cli import config, desktop
-from cli.cli import _create_indexer, _load_config_or_exit
+from cli.utils import _create_indexer, _load_config_or_exit
 
 app = typer.Typer()
 

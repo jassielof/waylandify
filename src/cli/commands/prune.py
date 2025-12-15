@@ -5,7 +5,7 @@ from rich import print
 from typing_extensions import Annotated
 
 from cli import backup, config
-from cli.cli import _create_indexer
+from cli.utils import _create_indexer
 
 app = typer.Typer()
 
