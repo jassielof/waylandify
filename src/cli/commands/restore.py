@@ -1,9 +1,9 @@
 from pathlib import Path
+from typing import Annotated
 
 import typer
 from rich import print
 from rich.table import Table
-from typing_extensions import Annotated
 
 from cli import backup
 

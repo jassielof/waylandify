@@ -1,8 +1,8 @@
 from pathlib import Path
+from typing import Annotated
 
 import typer
 from rich import print
-from typing_extensions import Annotated
 
 from cli import backup, config
 from cli.utils import _create_indexer

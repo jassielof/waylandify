@@ -1,9 +1,9 @@
 import difflib
 from pathlib import Path
+from typing import Annotated
 
 import typer
 from rich import print
-from typing_extensions import Annotated
 
 from cli import config, desktop
 from cli.utils import _create_indexer, _load_config_or_exit

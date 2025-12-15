@@ -6,11 +6,10 @@ in desktop files for Chromium-based applications.
 """
 
 from importlib.metadata import version
+from typing import Annotated
 
 import typer
 from rich import print
-from rich.console import Console
-from typing_extensions import Annotated
 
 from .commands.apply import app as apply_app
 from .commands.clean import app as clean_app
@@ -22,8 +21,6 @@ from .commands.restore import app as restore_app
 from .commands.status import app as status_app
 from .commands.validate import app as validate_app
 from .commands.verify import app as verify_app
-
-console = Console()
 
 app = typer.Typer(
     help="A CLI tool to apply Wayland flags to Chromium-based applications.",
@@ -65,7 +62,6 @@ def main(
     """
     Waylandify - Add Wayland support to Chromium-based applications.
 
-    Automatically modifies .desktop files to enable Wayland support
-    without touching system files.
+    Automatically modifies .desktop files to enable Wayland support without touching system files.
     """
-    app()
+    pass

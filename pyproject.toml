@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
-waylandify = "cli:main"
+waylandify = "cli:app"
 
 [dependency-groups]
 dev = [

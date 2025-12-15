@@ -4,6 +4,7 @@ from typing import Annotated
 
 import typer
 from typer import Typer
+from rich import print
 
 from cli import backup, config, desktop, exec_parser
 from cli.utils import _create_indexer, _load_config_or_exit
