@@ -2,7 +2,37 @@ import typer
 from rich import print
 
 from cli import config, exec_parser
+
 app = typer.Typer()
+
+
+def _validate_and_print_programs(cfg) -> tuple[list[str], list[str]]:
+    print("\n[bold]Programs:[/bold]")
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    for i, program in enumerate(cfg.programs):
+        merged_flags = exec_parser.format_flags_display(
+            program.flags, merge_enable_features=program.merge_enable_features
+        )
+
+        status = "✅" if program.enabled else "⏸️"
+        print(f"\n  {status} [{i + 1}] [cyan]{program.name}[/cyan]")
+        print(f"      Executables: {', '.join(program.executables[:3])}")
+        print(f"      Flags: {merged_flags}")
+
+        if not program.executables:
+            errors.append(f"'{program.name}' has no executables")
+        if not program.flags:
+            warnings.append(f"'{program.name}' has no flags")
+        for flag in program.flags:
+            if not flag.startswith("-"):
+                warnings.append(
+                    f"Flag '{flag}' in '{program.name}' doesn't start with '-'"
+                )
+
+    return errors, warnings
+
 
 @app.command()
 def validate():
@@ -37,33 +67,7 @@ def validate():
     print("[green]✅ TOML syntax valid[/green]")
     print("[green]✅ Schema validation passed[/green]")
 
-    print("\n[bold]Programs:[/bold]")
-
-    errors: list[str] = []
-    warnings: list[str] = []
-
-    for i, program in enumerate(cfg.programs):
-        # Show merged flags
-        merged_flags = exec_parser.format_flags_display(
-            program.flags, merge_enable_features=program.merge_enable_features
-        )
-
-        status = "✅" if program.enabled else "⏸️"
-        print(f"\n  {status} [{i + 1}] [cyan]{program.name}[/cyan]")
-        print(f"      Executables: {', '.join(program.executables[:3])}")
-        print(f"      Flags: {merged_flags}")
-
-        if not program.executables:
-            errors.append(f"'{program.name}' has no executables")
-
-        if not program.flags:
-            warnings.append(f"'{program.name}' has no flags")
-
-        for flag in program.flags:
-            if not flag.startswith("-"):
-                warnings.append(
-                    f"Flag '{flag}' in '{program.name}' doesn't start with '-'"
-                )
+    errors, warnings = _validate_and_print_programs(cfg)
 
     print("\n" + "-" * 40)
 
