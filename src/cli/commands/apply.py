@@ -6,9 +6,10 @@ import typer
 from rich import print
 from typer import Typer
 
-from cli import backup, config, desktop, exec_parser
+from cli import backup, config
 from cli.utils import _create_indexer, _load_config_or_exit
-
+from xdg_desktop import apply_flags_to_desktop_file, sync_flags_to_desktop_file
+from xdg_desktop.exec import format_flags as format_exec_flags
 app = Typer()
 
 
@@ -36,7 +37,7 @@ def _process_single_file(
     stats: dict,
 ):
     try:
-        modified_content, was_modified = desktop.sync_flags_to_desktop_file(
+        modified_content, was_modified = sync_flags_to_desktop_file(
             user_path=target_path,
             system_path=source_path,
             desired_flags=program_settings.flags,
@@ -111,7 +112,7 @@ def _process_program(
             )
         return
 
-    merged_flags = exec_parser.format_flags_display(
+    merged_flags = format_exec_flags(
         program_settings.flags,
         merge_enable_features=program_settings.merge_enable_features,
     )

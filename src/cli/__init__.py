@@ -5,11 +5,7 @@ This module provides the CLI commands for managing Wayland flags
 in desktop files for Chromium-based applications.
 """
 
-from importlib.metadata import version
-from typing import Annotated
-
 import typer
-from rich import print
 
 from .commands.apply import app as apply_app
 from .commands.clean import app as clean_app
@@ -39,25 +35,8 @@ app.add_typer(verify_app)
 app.add_typer(init_app)
 
 
-def version_callback(value: bool):
-    """Print version and exit."""
-    if value:
-        print(f"[bold cyan]waylandify[/bold cyan] {version('waylandify')}")
-        raise typer.Exit()
-
-
 @app.callback()
-def main(
-    version: Annotated[
-        bool,
-        typer.Option(
-            "--version",
-            help="Show version and exit.",
-            callback=version_callback,
-            is_eager=True,
-        ),
-    ] = False,
-):
+def main():
     """
     Waylandify - Add Wayland support to Chromium-based applications.
 

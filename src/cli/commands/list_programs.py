@@ -2,8 +2,8 @@ from rich import print
 from rich.table import Table
 from typer import Typer
 
-from cli import exec_parser
 from cli.utils import _create_indexer, _load_config_or_exit
+from xdg_desktop.exec import format_flags as format_exec_flags
 
 app = Typer()
 
@@ -37,7 +37,7 @@ def list_programs():
             status = "⏸️  Disabled"
 
         # Show merged flags
-        merged_flags = exec_parser.format_flags_display(
+        merged_flags = format_exec_flags(
             program.flags, merge_enable_features=program.merge_enable_features
         )
         # Truncate for display

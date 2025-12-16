@@ -1,7 +1,8 @@
 import typer
 from rich import print
 
-from cli import config, exec_parser
+from cli import config
+from xdg_desktop.exec import format_flags as format_exec_flags
 
 app = typer.Typer()
 
@@ -12,7 +13,7 @@ def _validate_and_print_programs(cfg) -> tuple[list[str], list[str]]:
     warnings: list[str] = []
 
     for i, program in enumerate(cfg.programs):
-        merged_flags = exec_parser.format_flags_display(
+        merged_flags = format_exec_flags(
             program.flags, merge_enable_features=program.merge_enable_features
         )
 
