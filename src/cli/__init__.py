@@ -33,13 +33,3 @@ app.add_typer(status_app)
 app.add_typer(validate_app)
 app.add_typer(verify_app)
 app.add_typer(init_app)
-
-
-@app.callback()
-def main():
-    """
-    Waylandify - Add Wayland support to Chromium-based applications.
-
-    Automatically modifies .desktop files to enable Wayland support without touching system files.
-    """
-    pass
