@@ -247,4 +247,4 @@ dev = [{ name = "ruff", specifier = ">=0.13.1" }]
 [[package]]
 name = "xdg-desktop-entry"
 version = "0.1.0+spec.1.5"
-source = { git = "https://github.com/jassielof/xdg-desktop-entry-python#4d3ea1dc243989c1656996d4d385d5e27f945d6e" }
+source = { git = "https://github.com/jassielof/xdg-desktop-entry-python#2c9c20d519a8af97af17fa2f12b245574511168b" }
