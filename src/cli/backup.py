@@ -28,7 +28,7 @@ def _load_metadata() -> dict:
         if "modifications" not in data:
             data["modifications"] = []
         return data
-    except (json.JSONDecodeError, IOError):
+    except json.JSONDecodeError, IOError:
         return {"backups": [], "modifications": []}
 
 
@@ -263,7 +263,7 @@ def find_untracked_user_files(
                         "source_path": str(system_file),
                     }
                 )
-        except (IOError, UnicodeDecodeError):
+        except IOError, UnicodeDecodeError:
             # Can't read, skip it
             continue
 
@@ -498,7 +498,7 @@ def clean_old_backups(older_than_days: int) -> tuple[int, int]:
                 files_removed += 1
             else:
                 remaining_backups.append(backup_info)
-        except (KeyError, ValueError):
+        except KeyError, ValueError:
             # Keep backups we can't parse
             remaining_backups.append(backup_info)
 
@@ -553,7 +553,7 @@ def get_backup_stats() -> dict:
         try:
             ts = datetime.datetime.strptime(b["timestamp"][:15], "%Y%m%d_%H%M%S")
             timestamps.append(ts)
-        except (KeyError, ValueError):
+        except KeyError, ValueError:
             pass
 
     return {
@@ -668,7 +668,7 @@ def _check_executable_exists(desktop_file_path: Path) -> bool:
                     return shutil.which(exec_path) is not None
 
                 return False
-    except (IOError, UnicodeDecodeError):
+    except IOError, UnicodeDecodeError:
         return False
 
     return False

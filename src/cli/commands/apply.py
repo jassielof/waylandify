@@ -10,6 +10,7 @@ from cli import backup, config
 from cli.utils import _create_indexer, _load_config_or_exit
 from xdg_desktop import apply_flags_to_desktop_file, sync_flags_to_desktop_file
 from xdg_desktop.exec import format_flags as format_exec_flags
+
 app = Typer()
 
 

@@ -127,7 +127,7 @@ class DesktopFileIndexer:
                             exec_full_path
                         ).name  # Return just the executable name
                     return None
-        except (IOError, UnicodeDecodeError):
+        except IOError, UnicodeDecodeError:
             return None
         return None
 
