@@ -5,11 +5,11 @@ from typing import Annotated
 import typer
 from rich import print
 from typer import Typer
+from xdg_desktop_entry import sync_flags_to_desktop_file
+from xdg_desktop_entry.exec import format_flags as format_exec_flags
 
 from cli import backup, config
 from cli.utils import _create_indexer, _load_config_or_exit
-from xdg_desktop import apply_flags_to_desktop_file, sync_flags_to_desktop_file
-from xdg_desktop.exec import format_flags as format_exec_flags
 
 app = Typer()
 

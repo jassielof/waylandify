@@ -2,8 +2,9 @@ from pathlib import Path
 
 import typer
 from rich import print
+from xdg_desktop_entry import desktop_file
 
-from cli import config, desktop
+from cli import config
 from cli.utils import _create_indexer, _load_config_or_exit
 
 app = typer.Typer()
@@ -57,7 +58,7 @@ def verify():
             processed_targets.add(target_path)
 
             try:
-                _, needs_modification = desktop.apply_flags_to_desktop_file(
+                _, needs_modification = desktop_file.apply_flags_to_desktop_file(
                     target_path,
                     program_settings.flags,
                     merge_enable_features=program_settings.merge_enable_features,

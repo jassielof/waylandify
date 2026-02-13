@@ -1,8 +1,8 @@
 import typer
 from rich import print
+from xdg_desktop_entry.exec import format_flags as format_exec_flags
 
 from cli import config
-from xdg_desktop.exec import format_flags as format_exec_flags
 
 app = typer.Typer()
 
