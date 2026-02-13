@@ -1,6 +1,0 @@
-[submodule "modules/desktop-parser"]
-	path = modules/desktop-parser
-	url = https://github.com/Atrophaneura/desktop-parser
-[submodule "modules/ariane"]
-	path = modules/ariane
-	url = https://github.com/Atrophaneura/Ariane/
