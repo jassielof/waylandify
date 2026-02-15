@@ -5,10 +5,10 @@ from typing import Annotated
 import typer
 from rich import print
 from typer import Typer
-from xdg_desktop_entry import sync_flags_to_desktop_file
 from xdg_desktop_entry.exec import format_flags as format_exec_flags
 
 from cli import backup, config
+from cli.desktop_entry_ops import sync_flags_in_file
 from cli.utils import _create_indexer, _load_config_or_exit
 
 app = Typer()
@@ -38,9 +38,9 @@ def _process_single_file(
     stats: dict,
 ):
     try:
-        modified_content, was_modified = sync_flags_to_desktop_file(
-            user_path=target_path,
-            system_path=source_path,
+        input_path = target_path if target_path.exists() else source_path
+        modified_content, was_modified = sync_flags_in_file(
+            input_path,
             desired_flags=program_settings.flags,
             previous_flags=previous_flags,
             merge_enable_features=program_settings.merge_enable_features,

@@ -4,9 +4,9 @@ from typing import Annotated
 
 import typer
 from rich import print
-from xdg_desktop_entry import desktop_file
 
 from cli import config
+from cli.desktop_entry_ops import preview_add_flags_in_file
 from cli.utils import _create_indexer, _load_config_or_exit
 
 app = typer.Typer()
@@ -64,7 +64,7 @@ def _process_program_diff(program_settings, indexer, user_desktop_dir: Path) -> 
         file_to_check = target_path if target_path.exists() else source_path
         try:
             original_content = file_to_check.read_text()
-            modified_content, was_modified = desktop_file.apply_flags_to_desktop_file(
+            modified_content, was_modified = preview_add_flags_in_file(
                 file_to_check,
                 program_settings.flags,
                 merge_enable_features=program_settings.merge_enable_features,
